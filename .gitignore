@@ -143,3 +143,4 @@ config/local-*
 # Electron app data
 app-data/
 user-data/
+node_modules
