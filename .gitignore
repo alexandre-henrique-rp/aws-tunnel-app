@@ -4,7 +4,7 @@ node_modules/
 .pnp.*
 
 # Build outputs
-dist/
+# dist/
 build/
 release/
 *.tgz
@@ -79,7 +79,7 @@ jspm_packages/
 
 # Nuxt.js build / generate output
 .nuxt/
-dist/
+# dist/
 
 # Gatsby files
 .cache/
@@ -120,7 +120,7 @@ electron-builder.yml
 electron-builder.yaml
 
 # Electron-builder output
-dist/
+# dist/
 release/
 *.dmg
 *.AppImage

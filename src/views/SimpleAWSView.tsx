@@ -1,4 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  spacing,
+  radius,
+  shadows,
+  typography,
+  lightTheme,
+  darkTheme,
+  type Theme,
+} from "../styles/tokens";
+
+// ─── Interfaces ──────────────────────────────────────────────────────────────
 
 interface AWSCredentials {
   accessKeyId: string;
@@ -13,31 +24,189 @@ interface OnlineStatus {
   error?: string;
 }
 
-interface Profile {
-  id: string;
-  name: string;
-  region: string;
-  instanceId: string;
-  localPort: number;
-  remotePort: number;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  sessionToken?: string;
-  expiration?: string;
+// ─── Theme Hook ──────────────────────────────────────────────────────────────
+
+function useTheme(): Theme {
+  const [isDark, setIsDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  return isDark ? darkTheme : lightTheme;
 }
 
-/**
- * @name SimpleAWSView
- * @description Interface simples para gerenciar credenciais AWS e monitorar status online
- */
+// ─── Injected Styles ─────────────────────────────────────────────────────────
+// CSS classes para hover/focus/transitions — impossível com inline styles puro.
+
+function GlobalStyles({ t }: { t: Theme }) {
+  const css = useMemo(
+    () => `
+    /* ── Reset & Base ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: ${t.bg.app}; font-family: ${typography.family.sans}; }
+
+    /* ── Scrollbar ────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: ${t.border.default}; border-radius: ${radius.full}px; }
+
+    /* ── Buttons ──────────────────────────────────── */
+    .aw-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: ${spacing.sm}px;
+      font-family: ${typography.family.sans}; font-weight: ${typography.weight.semibold};
+      font-size: ${typography.size.base}px; line-height: 1;
+      border: none; border-radius: ${radius.md}px; cursor: pointer;
+      padding: ${spacing.sm}px ${spacing.lg}px;
+      transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      outline: none;
+    }
+    .aw-btn:focus-visible { box-shadow: ${shadows.focus}; }
+    .aw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .aw-btn-primary { background: ${t.action.primary}; color: ${t.action.primaryFg}; }
+    .aw-btn-primary:hover:not(:disabled) { background: ${t.action.primaryHover}; }
+
+    .aw-btn-success { background: ${t.action.success}; color: ${t.action.successFg}; }
+    .aw-btn-success:hover:not(:disabled) { background: ${t.action.successHover}; }
+
+    .aw-btn-danger { background: ${t.action.danger}; color: ${t.action.dangerFg}; }
+    .aw-btn-danger:hover:not(:disabled) { background: ${t.action.dangerHover}; }
+    .aw-btn-danger:focus-visible { box-shadow: ${shadows.focusDanger}; }
+
+    .aw-btn-ghost {
+      background: transparent; color: ${t.text.secondary};
+      border: 1px solid ${t.border.default};
+    }
+    .aw-btn-ghost:hover:not(:disabled) { background: ${t.bg.surfaceHover}; color: ${t.text.primary}; }
+
+    .aw-btn-sm { font-size: ${typography.size.sm}px; padding: ${spacing.xs}px ${spacing.md}px; }
+    .aw-btn-lg { font-size: ${typography.size.lg}px; padding: ${spacing.md}px ${spacing.xl}px; }
+    .aw-btn-full { width: 100%; }
+
+    /* ── Inputs ───────────────────────────────────── */
+    .aw-input, .aw-textarea, .aw-select {
+      width: 100%; font-family: ${typography.family.sans}; font-size: ${typography.size.md}px;
+      color: ${t.text.primary}; background: ${t.bg.input};
+      border: 1px solid ${t.border.default}; border-radius: ${radius.md}px;
+      padding: ${spacing.sm + 2}px ${spacing.md}px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      outline: none;
+    }
+    .aw-input:hover, .aw-textarea:hover, .aw-select:hover {
+      border-color: ${t.border.strong}; background: ${t.bg.inputHover};
+    }
+    .aw-input:focus, .aw-textarea:focus, .aw-select:focus {
+      border-color: ${t.border.focus}; box-shadow: ${shadows.focus};
+    }
+    .aw-input::placeholder, .aw-textarea::placeholder { color: ${t.text.placeholder}; }
+    .aw-textarea { resize: vertical; font-family: ${typography.family.mono}; font-size: ${typography.size.sm}px; line-height: 1.6; }
+    .aw-select { cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right ${spacing.md}px center;
+      padding-right: ${spacing['2xl']}px;
+    }
+
+    /* ── Segmented Control ────────────────────────── */
+    .aw-seg { display: flex; background: ${t.bg.muted}; border-radius: ${radius.md}px; padding: 3px; gap: 2px; }
+    .aw-seg-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: ${spacing.xs}px;
+      padding: ${spacing.sm}px ${spacing.lg}px; border: none; border-radius: ${radius.sm + 1}px;
+      font-family: ${typography.family.sans}; font-size: ${typography.size.base}px;
+      font-weight: ${typography.weight.medium}; cursor: pointer;
+      background: transparent; color: ${t.text.muted};
+      transition: all 0.2s ease;
+    }
+    .aw-seg-btn:hover { color: ${t.text.secondary}; }
+    .aw-seg-btn.active {
+      background: ${t.bg.surface}; color: ${t.text.primary};
+      box-shadow: ${shadows.sm}; font-weight: ${typography.weight.semibold};
+    }
+
+    /* ── Status Dot Pulse ─────────────────────────── */
+    @keyframes aw-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.5); }
+    }
+    .aw-dot { display: inline-block; width: 8px; height: 8px; border-radius: ${radius.full}px; }
+    .aw-dot-online { background: ${t.status.online.dot}; animation: aw-pulse 2s ease-in-out infinite; }
+    .aw-dot-offline { background: ${t.status.offline.dot}; }
+
+    /* ── Card ─────────────────────────────────────── */
+    .aw-card {
+      background: ${t.bg.surface}; border: 1px solid ${t.border.default};
+      border-radius: ${radius.lg}px; padding: ${spacing.lg}px;
+      box-shadow: ${shadows.sm};
+    }
+
+    /* ── Divider ──────────────────────────────────── */
+    .aw-divider {
+      display: flex; align-items: center; gap: ${spacing.md}px;
+      margin: ${spacing.lg}px 0; color: ${t.text.muted};
+      font-size: ${typography.size.xs}px; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: ${typography.weight.medium};
+    }
+    .aw-divider::before, .aw-divider::after {
+      content: ''; flex: 1; height: 1px; background: ${t.border.default};
+    }
+
+    /* ── Feedback Toast ───────────────────────────── */
+    .aw-toast {
+      border-radius: ${radius.md}px; padding: ${spacing.md}px ${spacing.lg}px;
+      font-size: ${typography.size.base}px; font-weight: ${typography.weight.medium};
+      border-left: 3px solid; animation: aw-slideIn 0.25s ease-out;
+    }
+    @keyframes aw-slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Label ────────────────────────────────────── */
+    .aw-label {
+      display: block; font-size: ${typography.size.sm}px; font-weight: ${typography.weight.semibold};
+      color: ${t.text.secondary}; margin-bottom: ${spacing.xs + 2}px;
+      letter-spacing: 0.01em;
+    }
+    .aw-label-required::after { content: ' *'; color: ${t.action.danger}; }
+
+    /* ── Collapsible Tips ─────────────────────────── */
+    .aw-tips-toggle {
+      display: flex; align-items: center; gap: ${spacing.sm}px;
+      background: none; border: none; cursor: pointer;
+      font-family: ${typography.family.sans}; font-size: ${typography.size.sm}px;
+      font-weight: ${typography.weight.semibold}; color: ${t.text.muted};
+      padding: ${spacing.sm}px 0; transition: color 0.15s ease;
+    }
+    .aw-tips-toggle:hover { color: ${t.text.secondary}; }
+    .aw-tips-list {
+      margin: ${spacing.sm}px 0 0 0; padding-left: ${spacing.xl}px;
+      font-size: ${typography.size.sm}px; color: ${t.text.secondary};
+      line-height: 1.8;
+    }
+  `,
+    [t],
+  );
+
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
 export const SimpleAWSView: React.FC = () => {
+  const t = useTheme();
+
+  // ── State ────────────────────────────────────────
   const [credentials, setCredentials] = useState<AWSCredentials>({
     accessKeyId: "",
     secretAccessKey: "",
     sessionToken: "",
     region: "us-east-1",
   });
-
   const [profileName, setProfileName] = useState("default");
   const [status, setStatus] = useState<OnlineStatus>({
     isOnline: false,
@@ -46,23 +215,38 @@ export const SimpleAWSView: React.FC = () => {
   const [isMonitoring, setIsMonitoring] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [credentialsText, setCredentialsText] = useState(""); // Para colar texto completo
-  const [showAdvanced, setShowAdvanced] = useState(false); // Alternar entre modos
+  const [credentialsText, setCredentialsText] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showTips, setShowTips] = useState(false);
 
-  // Carregar status inicial e perfis disponíveis
+  // ── Effects ──────────────────────────────────────
   useEffect(() => {
     loadInitialData();
   }, []);
 
+  useEffect(() => {
+    if (isMonitoring) {
+      const interval = setInterval(async () => {
+        const currentStatus = await window.electron.aws.getStatus();
+        setStatus(currentStatus);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [isMonitoring]);
+
+  useEffect(() => {
+    if (showAdvanced) {
+      loadCredentialsFromProfile();
+    }
+  }, [showAdvanced]);
+
+  // ── Data Loading ─────────────────────────────────
   const loadInitialData = async () => {
     try {
-      // Carregar perfis existentes
       const profiles = await window.electron.aws.listProfiles();
       if (profiles.length > 0 && !profiles.includes("default")) {
         setProfileName(profiles[0]);
       }
-
-      // Carregar status atual
       const currentStatus = await window.electron.aws.getStatus();
       setStatus(currentStatus);
     } catch (error) {
@@ -70,36 +254,15 @@ export const SimpleAWSView: React.FC = () => {
     }
   };
 
-  // Atualizar status periodicamente se estiver monitorando
-  useEffect(() => {
-    if (isMonitoring) {
-      const interval = setInterval(async () => {
-        const currentStatus = await window.electron.aws.getStatus();
-        setStatus(currentStatus);
-      }, 5000); // Atualizar a cada 5 segundos
-
-      return () => clearInterval(interval);
-    }
-  }, [isMonitoring]);
-
-  // Carregar credenciais do perfil ao entrar no modo rápido
-  useEffect(() => {
-    if (showAdvanced) {
-      loadCredentialsFromProfile();
-    }
-  }, [showAdvanced]);
-
   const loadCredentialsFromProfile = async () => {
     try {
       const profiles = await (window.electron as any).aws.listProfiles();
       if (profiles.length > 0) {
         const currentProfile = profileName || profiles[0];
         setProfileName(currentProfile);
-        
-        // Tentar carregar credenciais do storage usando a API existente
         const storedProfiles = await (window.electron as any).storage.getProfiles();
         const profile = storedProfiles.find((p: any) => p.name === currentProfile);
-        
+
         if (profile) {
           setCredentials({
             accessKeyId: profile.accessKeyId || "",
@@ -108,12 +271,13 @@ export const SimpleAWSView: React.FC = () => {
             region: profile.region || "us-east-1",
           });
         } else {
-          // Se não encontrar no storage, tentar carregar do arquivo AWS
           await (window.electron as any).aws.importFromExistingCredentials();
           const updatedProfiles = await (window.electron as any).aws.listProfiles();
           if (updatedProfiles.includes(currentProfile)) {
             const updatedStored = await (window.electron as any).storage.getProfiles();
-            const updatedProfile = updatedStored.find((p: any) => p.name === currentProfile);
+            const updatedProfile = updatedStored.find(
+              (p: any) => p.name === currentProfile,
+            );
             if (updatedProfile) {
               setCredentials({
                 accessKeyId: updatedProfile.accessKeyId || "",
@@ -130,93 +294,63 @@ export const SimpleAWSView: React.FC = () => {
     }
   };
 
-  /**
-   * @name handleImportFromText
-   * @description Importa credenciais de texto colado
-   */
+  // ── Handlers ─────────────────────────────────────
   const handleImportFromText = async () => {
     setLoading(true);
     setMessage("");
-
     try {
       if (!credentialsText.trim()) {
-        setMessage("❌ Cole o texto das credenciais primeiro");
+        setMessage("error:Cole o texto das credenciais primeiro");
         return;
       }
-
       const result =
         await window.electron.aws.parseAndSaveCredentialsText(credentialsText);
-
       if (result.success) {
-        setMessage(`✅ ${result.message}`);
-        setCredentialsText(""); // Limpar campo
-
-        // Atualizar lista de perfis
+        setMessage(`success:${result.message}`);
+        setCredentialsText("");
         const profiles = await window.electron.aws.listProfiles();
-        if (profiles.length > 0) {
-          setProfileName(profiles[0]);
-        }
-
-        // Testar conexão automaticamente
+        if (profiles.length > 0) setProfileName(profiles[0]);
         await handleTestConnection();
       } else {
-        setMessage(`❌ ${result.message}`);
+        setMessage(`error:${result.message}`);
       }
     } catch (error) {
       console.error("Erro ao importar texto:", error);
-      setMessage("❌ Erro ao importar credenciais do texto");
+      setMessage("error:Erro ao importar credenciais do texto");
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * @name handleImportFromExisting
-   * @description Importa credenciais do arquivo ~/.aws/credentials existente
-   */
   const handleImportFromExisting = async () => {
     setLoading(true);
     setMessage("");
-
     try {
       const result = await window.electron.aws.importFromExistingCredentials();
-
       if (result.success) {
-        setMessage(`✅ ${result.message}`);
-
-        // Atualizar lista de perfis
+        setMessage(`success:${result.message}`);
         const profiles = await window.electron.aws.listProfiles();
-        if (profiles.length > 0) {
-          setProfileName(profiles[0]);
-        }
-
-        // Testar conexão automaticamente
+        if (profiles.length > 0) setProfileName(profiles[0]);
         await handleTestConnection();
       } else {
-        setMessage(`❌ ${result.message}`);
+        setMessage(`error:${result.message}`);
       }
     } catch (error) {
       console.error("Erro ao importar existente:", error);
-      setMessage("❌ Erro ao importar credenciais existentes");
+      setMessage("error:Erro ao importar credenciais existentes");
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * @name handleClearCredentials
-   * @description Limpa completamente os arquivos ~/.aws/credentials e ~/.aws/config
-   */
   const handleClearCredentials = async () => {
     setLoading(true);
     setMessage("");
-
     try {
       const success = await window.electron.aws.clearCredentials();
-
       if (success) {
         setMessage(
-          "✅ Arquivos ~/.aws/credentials e ~/.aws/config limpos com sucesso",
+          "success:Arquivos ~/.aws/credentials e ~/.aws/config limpos com sucesso",
         );
         setCredentials({
           accessKeyId: "",
@@ -226,82 +360,61 @@ export const SimpleAWSView: React.FC = () => {
         });
         setProfileName("default");
         setCredentialsText("");
-
-        // Atualizar status
         setStatus({
           isOnline: false,
           lastCheck: new Date(),
           error: "Nenhuma credencial configurada",
         });
       } else {
-        setMessage("❌ Erro ao limpar arquivos de credenciais");
+        setMessage("error:Erro ao limpar arquivos de credenciais");
       }
     } catch (error) {
       console.error("Erro ao limpar credenciais:", error);
-      setMessage("❌ Erro ao limpar credenciais");
+      setMessage("error:Erro ao limpar credenciais");
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * @name handleSaveCredentials
-   * @description Salva as credenciais AWS no arquivo .aws/config
-   */
   const handleSaveCredentials = async () => {
     setLoading(true);
     setMessage("");
-
     try {
-      // Validar campos obrigatórios
       if (!credentials.accessKeyId || !credentials.secretAccessKey) {
-        setMessage("❌ Access Key ID e Secret Access Key são obrigatórios");
+        setMessage("error:Access Key ID e Secret Access Key são obrigatórios");
         return;
       }
-
       const success = await window.electron.aws.saveCredentials(
         credentials,
         profileName,
       );
-
       if (success) {
         setMessage(
-          `✅ Credenciais salvas com sucesso para o perfil "${profileName}" (arquivos limpos)`,
+          `success:Credenciais salvas para o perfil "${profileName}"`,
         );
-
-        // Testar conexão automaticamente
         await handleTestConnection();
       } else {
-        setMessage("❌ Erro ao salvar credenciais");
+        setMessage("error:Erro ao salvar credenciais");
       }
     } catch (error) {
       console.error("Erro ao salvar credenciais:", error);
-      setMessage("❌ Erro ao salvar credenciais");
+      setMessage("error:Erro ao salvar credenciais");
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * @name handleTestConnection
-   * @description Testa se as credenciais estão funcionando
-   */
   const handleTestConnection = async () => {
     setLoading(true);
-    setMessage("🔄 Testando conexão...");
-
+    setMessage("loading:Testando conexão...");
     try {
       const isOnline =
         await window.electron.aws.testSimpleConnection(profileName);
-
       if (isOnline) {
-        setMessage("✅ Conexão bem-sucedida! Você está online.");
-        setStatus({
-          isOnline: true,
-          lastCheck: new Date(),
-        });
+        setMessage("success:Conexão bem-sucedida! Você está online.");
+        setStatus({ isOnline: true, lastCheck: new Date() });
       } else {
-        setMessage("❌ Falha na conexão. Verifique suas credenciais.");
+        setMessage("error:Falha na conexão. Verifique suas credenciais.");
         setStatus({
           isOnline: false,
           lastCheck: new Date(),
@@ -310,31 +423,29 @@ export const SimpleAWSView: React.FC = () => {
       }
     } catch (error) {
       console.error("Erro ao testar conexão:", error);
-
-      // Tratamento específico para diferentes tipos de erro
-      let errorMessage = "❌ Erro ao testar conexão";
+      let errorMessage = "Erro ao testar conexão";
       let errorDetails = "Falha na autenticação";
 
       if (error instanceof Error) {
         if (error.message.includes("Token de sessão expirado")) {
-          errorMessage = "⏰ Token de sessão expirado!";
+          errorMessage = "Token de sessão expirado!";
           errorDetails = "Obtenha novas credenciais AWS temporárias";
         } else if (error.message.includes("Access Key ID inválido")) {
-          errorMessage = "🔑 Access Key ID inválido!";
+          errorMessage = "Access Key ID inválido!";
           errorDetails = "Verifique a chave de acesso";
         } else if (error.message.includes("Secret Access Key inválido")) {
-          errorMessage = "🔒 Secret Access Key inválido!";
+          errorMessage = "Secret Access Key inválido!";
           errorDetails = "Verifique a chave secreta";
         } else if (error.message.includes("Nenhuma credencial encontrada")) {
-          errorMessage = "📂 Nenhuma credencial encontrada!";
+          errorMessage = "Nenhuma credencial encontrada!";
           errorDetails = "Configure as credenciais para este perfil";
         } else {
-          errorMessage = `❌ ${error.message}`;
+          errorMessage = error.message;
           errorDetails = "Verifique suas credenciais AWS";
         }
       }
 
-      setMessage(errorMessage);
+      setMessage(`error:${errorMessage}`);
       setStatus({
         isOnline: false,
         lastCheck: new Date(),
@@ -345,449 +456,353 @@ export const SimpleAWSView: React.FC = () => {
     }
   };
 
-  /**
-   * @name handleToggleMonitoring
-   * @description Inicia ou para o monitoramento do status
-   */
   const handleToggleMonitoring = async () => {
     if (isMonitoring) {
       await window.electron.aws.stopMonitoring();
       setIsMonitoring(false);
-      setMessage("⏹️ Monitoramento parado");
+      setMessage("info:Monitoramento parado");
     } else {
-      await window.electron.aws.startMonitoring(profileName, 30); // 30 segundos
+      await window.electron.aws.startMonitoring(profileName, 30);
       setIsMonitoring(true);
-      setMessage("▶️ Monitoramento iniciado (verifica a cada 30s)");
+      setMessage("info:Monitoramento iniciado (verifica a cada 30s)");
     }
   };
 
-  /**
-   * @name formatLastCheck
-   * @description Formata a data da última verificação
-   */
-  const formatLastCheck = (date: Date): string => {
-    return new Date(date).toLocaleTimeString("pt-BR");
+  // ── Helpers ──────────────────────────────────────
+  const formatLastCheck = (date: Date): string =>
+    new Date(date).toLocaleTimeString("pt-BR");
+
+  const getMessageType = (): "success" | "error" | "info" | "loading" => {
+    if (message.startsWith("success:")) return "success";
+    if (message.startsWith("error:")) return "error";
+    if (message.startsWith("loading:")) return "loading";
+    return "info";
   };
 
+  const getMessageText = (): string => {
+    const idx = message.indexOf(":");
+    return idx !== -1 ? message.slice(idx + 1) : message;
+  };
+
+  const statusColors = status.isOnline ? t.status.online : t.status.offline;
+
+  // ── Render ───────────────────────────────────────
   return (
-    <div
-      style={{
-        padding: "20px",
-        maxWidth: "600px",
-        margin: "0 auto",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <div style={{ textAlign: "center", marginBottom: "30px" }}>
-        <h1>🔐 AWS Config Manager</h1>
-        <p style={{ color: "#666" }}>
-          Gerencie suas credenciais AWS e monitore o status de conexão
-        </p>
+    <>
+      <GlobalStyles t={t} />
 
-        {/* Botões de alternância */}
-        <div style={{ marginTop: "20px" }}>
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            style={{
-              padding: "8px 16px",
-              backgroundColor: showAdvanced ? "#6c757d" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              marginRight: "10px",
-            }}
-          >
-            {showAdvanced ? "📝 Modo Manual" : "📋 Modo Rápido"}
-          </button>
-        </div>
-      </div>
-
-      {/* Status Card */}
       <div
         style={{
-          backgroundColor: status.isOnline ? "#d4edda" : "#f8d7da",
-          border: `1px solid ${status.isOnline ? "#c3e6cb" : "#f5c6cb"}`,
-          borderRadius: "8px",
-          padding: "15px",
-          marginBottom: "20px",
+          height: "100vh",
+          background: t.bg.app,
+          padding: `${spacing.lg}px`,
+          fontFamily: typography.family.sans,
+          color: t.text.primary,
+          overflow: "auto",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <div>
-            <h3
-              style={{
-                margin: "0",
-                color: status.isOnline ? "#155724" : "#721c24",
-              }}
-            >
-              {status.isOnline ? "🟢 ONLINE" : "🔴 OFFLINE"}
-            </h3>
-            <p style={{ margin: "5px 0 0 0", fontSize: "12px", color: "#666" }}>
-              Última verificação: {formatLastCheck(status.lastCheck)}
-            </p>
-            {status.error && (
-              <p
-                style={{
-                  margin: "5px 0 0 0",
-                  fontSize: "12px",
-                  color: "#721c24",
-                }}
-              >
-                Erro: {status.error}
-              </p>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              onClick={handleTestConnection}
-              disabled={loading}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: "#007bff",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-            >
-              🔄 Testar
-            </button>
-            <button
-              onClick={handleToggleMonitoring}
-              style={{
-                padding: "8px 16px",
-                backgroundColor: isMonitoring ? "#dc3545" : "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              {isMonitoring ? "⏹️ Parar" : "▶️ Monitorar"}
-            </button>
-          </div>
-        </div>
-      </div>
+        <div style={{ maxWidth: 540, margin: "0 auto" }}>
 
-      {/* Importação Rápida */}
-      {showAdvanced && (
-        <div
-          style={{
-            backgroundColor: "#e7f3ff",
-            border: "1px solid #b3d9ff",
-            borderRadius: "8px",
-            padding: "20px",
-            marginBottom: "20px",
-          }}
-        >
-          <h3 style={{ marginTop: 0, color: "#0066cc" }}>
-            📋 Importação Rápida
-          </h3>
-
-          <div style={{ marginBottom: "15px" }}>
-            <button
-              onClick={handleImportFromExisting}
-              disabled={loading}
-              style={{
-                padding: "10px 16px",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: loading ? "not-allowed" : "pointer",
-                marginRight: "10px",
-                marginBottom: "10px",
-              }}
-            >
-              📂 Importar do ~/.aws/credentials
-            </button>
-
-            <button
-              onClick={handleClearCredentials}
-              disabled={loading}
-              style={{
-                padding: "10px 16px",
-                backgroundColor: "#dc3545",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: loading ? "not-allowed" : "pointer",
-                marginBottom: "10px",
-              }}
-            >
-              🗑️ Limpar ~/.aws/credentials
-            </button>
-
-            <div style={{ marginTop: "10px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "5px",
-                  fontWeight: "bold",
-                }}
-              >
-                Ou cole o conteúdo do arquivo:
-              </label>
-              <textarea
-                value={credentialsText}
-                onChange={(e) => setCredentialsText(e.target.value)}
-                placeholder="[584532893736_AdministratorAccess]
-aws_access_key_id=ASIAYQGHAEAUP67LJIP3
-aws_secret_access_key=hryRrE3q228beXiJG/2Vwh1fohkmcmPdTDNXBu5E
-aws_session_token=IQoJb3JpZ2luX2VjEPX..."
-                rows={6}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  boxSizing: "border-box",
-                  fontFamily: "monospace",
-                  fontSize: "12px",
-                  resize: "vertical",
-                }}
+          {/* ── Status Bar ──────────────────────────── */}
+          <div
+            className="aw-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: `${spacing.sm}px ${spacing.md}px`,
+              marginBottom: spacing.md,
+              background: statusColors.bg,
+              borderColor: statusColors.border,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
+              <span
+                className={`aw-dot ${status.isOnline ? "aw-dot-online" : "aw-dot-offline"}`}
               />
+              <div>
+                <span
+                  style={{
+                    fontSize: typography.size.base,
+                    fontWeight: typography.weight.semibold,
+                    color: statusColors.text,
+                  }}
+                >
+                  {status.isOnline ? "Online" : "Offline"}
+                </span>
+                <span
+                  style={{
+                    fontSize: typography.size.xs,
+                    color: statusColors.text,
+                    opacity: 0.7,
+                    marginLeft: spacing.sm,
+                  }}
+                >
+                  {formatLastCheck(status.lastCheck)}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: spacing.sm }}>
               <button
-                onClick={handleImportFromText}
-                disabled={loading || !credentialsText.trim()}
-                style={{
-                  marginTop: "10px",
-                  padding: "10px 16px",
-                  backgroundColor:
-                    loading || !credentialsText.trim() ? "#6c757d" : "#007bff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor:
-                    loading || !credentialsText.trim()
-                      ? "not-allowed"
-                      : "pointer",
-                }}
+                className="aw-btn aw-btn-primary aw-btn-sm"
+                onClick={handleTestConnection}
+                disabled={loading}
               >
-                📥 Importar do Texto
+                Testar
+              </button>
+              <button
+                className={`aw-btn aw-btn-sm ${isMonitoring ? "aw-btn-danger" : "aw-btn-ghost"}`}
+                onClick={handleToggleMonitoring}
+              >
+                {isMonitoring ? "Parar" : "Monitorar"}
               </button>
             </div>
           </div>
+
+          {/* ── Feedback Message ────────────────────── */}
+          {message && (
+            <div
+              className="aw-toast"
+              style={{
+                marginBottom: spacing.md,
+                ...(getMessageType() === "success" && {
+                  background: t.feedback.success.bg,
+                  borderColor: t.feedback.success.border,
+                  color: t.feedback.success.text,
+                }),
+                ...(getMessageType() === "error" && {
+                  background: t.feedback.error.bg,
+                  borderColor: t.feedback.error.border,
+                  color: t.feedback.error.text,
+                }),
+                ...(getMessageType() === "info" && {
+                  background: t.feedback.info.bg,
+                  borderColor: t.feedback.info.border,
+                  color: t.feedback.info.text,
+                }),
+                ...(getMessageType() === "loading" && {
+                  background: t.feedback.warning.bg,
+                  borderColor: t.feedback.warning.border,
+                  color: t.feedback.warning.text,
+                }),
+              }}
+            >
+              {getMessageText()}
+            </div>
+          )}
+
+          {/* ── Mode Tabs ───────────────────────────── */}
+          <div className="aw-seg" style={{ marginBottom: spacing.md }}>
+            <button
+              className={`aw-seg-btn ${!showAdvanced ? "active" : ""}`}
+              onClick={() => setShowAdvanced(false)}
+            >
+              Credenciais
+            </button>
+            <button
+              className={`aw-seg-btn ${showAdvanced ? "active" : ""}`}
+              onClick={() => setShowAdvanced(true)}
+            >
+              Importação Rápida
+            </button>
+          </div>
+
+          {/* ── Quick Import Panel ──────────────────── */}
+          {showAdvanced && (
+            <div className="aw-card" style={{ marginBottom: spacing.md }}>
+              <button
+                className="aw-btn aw-btn-success aw-btn-full"
+                onClick={handleImportFromExisting}
+                disabled={loading}
+              >
+                Importar de ~/.aws/credentials
+              </button>
+
+              <div className="aw-divider">ou cole abaixo</div>
+
+              <textarea
+                className="aw-textarea"
+                value={credentialsText}
+                onChange={(e) => setCredentialsText(e.target.value)}
+                placeholder={`[584532893736_AdministratorAccess]\naws_access_key_id=ASIAYQGHAEAUP67LJIP3\naws_secret_access_key=hryRrE3q228beXiJG...\naws_session_token=IQoJb3JpZ2luX2VjEPX...`}
+                rows={4}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: spacing.sm,
+                  marginTop: spacing.md,
+                }}
+              >
+                <button
+                  className="aw-btn aw-btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={handleImportFromText}
+                  disabled={loading || !credentialsText.trim()}
+                >
+                  Importar do Texto
+                </button>
+                <button
+                  className="aw-btn aw-btn-danger"
+                  onClick={handleClearCredentials}
+                  disabled={loading}
+                >
+                  Limpar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Manual Credentials Form ─────────────── */}
+          {!showAdvanced && (
+            <div className="aw-card" style={{ marginBottom: spacing.md }}>
+              {/* Profile Name */}
+              <div style={{ marginBottom: spacing.md }}>
+                <label className="aw-label">Nome do Perfil</label>
+                <input
+                  className="aw-input"
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="default"
+                />
+              </div>
+
+              {/* Access Key */}
+              <div style={{ marginBottom: spacing.md }}>
+                <label className="aw-label aw-label-required">Access Key ID</label>
+                <input
+                  className="aw-input"
+                  type="text"
+                  value={credentials.accessKeyId}
+                  onChange={(e) =>
+                    setCredentials({ ...credentials, accessKeyId: e.target.value })
+                  }
+                  placeholder="AKIAIOSFODNN7EXAMPLE"
+                />
+              </div>
+
+              {/* Secret Key */}
+              <div style={{ marginBottom: spacing.md }}>
+                <label className="aw-label aw-label-required">
+                  Secret Access Key
+                </label>
+                <input
+                  className="aw-input"
+                  type="password"
+                  value={credentials.secretAccessKey}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      secretAccessKey: e.target.value,
+                    })
+                  }
+                  placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                />
+              </div>
+
+              {/* Session Token */}
+              <div style={{ marginBottom: spacing.md }}>
+                <label className="aw-label">Session Token</label>
+                <textarea
+                  className="aw-textarea"
+                  value={credentials.sessionToken}
+                  onChange={(e) =>
+                    setCredentials({
+                      ...credentials,
+                      sessionToken: e.target.value,
+                    })
+                  }
+                  placeholder="Token de sessão temporária (opcional)"
+                  rows={2}
+                />
+              </div>
+
+              {/* Region */}
+              <div style={{ marginBottom: spacing.lg }}>
+                <label className="aw-label">Região</label>
+                <select
+                  className="aw-select"
+                  value={credentials.region}
+                  onChange={(e) =>
+                    setCredentials({ ...credentials, region: e.target.value })
+                  }
+                >
+                  <option value="us-east-1">us-east-1 (N. Virginia)</option>
+                  <option value="us-west-2">us-west-2 (Oregon)</option>
+                  <option value="eu-west-1">eu-west-1 (Ireland)</option>
+                  <option value="sa-east-1">sa-east-1 (São Paulo)</option>
+                </select>
+              </div>
+
+              {/* Save */}
+              <button
+                className="aw-btn aw-btn-primary aw-btn-full"
+                onClick={handleSaveCredentials}
+                disabled={loading}
+              >
+                {loading ? "Salvando..." : "Salvar Credenciais"}
+              </button>
+            </div>
+          )}
+
+          {/* ── Tips Section ────────────────────────── */}
+          <div>
+            <button
+              className="aw-tips-toggle"
+              onClick={() => setShowTips(!showTips)}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  transform: showTips ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+              Como usar
+            </button>
+
+            {showTips && (
+              <ol className="aw-tips-list">
+                <li>
+                  Use <strong>Importação Rápida</strong> para colar credenciais
+                  completas
+                </li>
+                <li>
+                  Ou preencha os campos manualmente na aba{" "}
+                  <strong>Credenciais</strong>
+                </li>
+                <li>
+                  Os arquivos ~/.aws são sempre limpos antes de salvar novas
+                  credenciais
+                </li>
+                <li>
+                  Use <strong>Limpar</strong> para apagar todas as credenciais
+                  existentes
+                </li>
+                <li>
+                  Use <strong>Testar</strong> para verificar se está online
+                </li>
+                <li>
+                  Ative <strong>Monitorar</strong> para verificação automática do
+                  status
+                </li>
+              </ol>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Credentials Form */}
-      <div
-        style={{
-          backgroundColor: "#f8f9fa",
-          border: "1px solid #dee2e6",
-          borderRadius: "8px",
-          padding: "20px",
-          marginBottom: "20px",
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>🔑 Credenciais AWS</h3>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "5px",
-              fontWeight: "bold",
-            }}
-          >
-            Nome do Perfil:
-          </label>
-          <input
-            type="text"
-            value={profileName}
-            onChange={(e) => setProfileName(e.target.value)}
-            placeholder="default"
-            style={{
-              width: "100%",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "5px",
-              fontWeight: "bold",
-            }}
-          >
-            Access Key ID: *
-          </label>
-          <input
-            type="text"
-            value={credentials.accessKeyId}
-            onChange={(e) =>
-              setCredentials({ ...credentials, accessKeyId: e.target.value })
-            }
-            placeholder="AKIAIOSFODNN7EXAMPLE"
-            style={{
-              width: "100%",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "5px",
-              fontWeight: "bold",
-            }}
-          >
-            Secret Access Key: *
-          </label>
-          <input
-            type="password"
-            value={credentials.secretAccessKey}
-            onChange={(e) =>
-              setCredentials({
-                ...credentials,
-                secretAccessKey: e.target.value,
-              })
-            }
-            placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-            style={{
-              width: "100%",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "15px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "5px",
-              fontWeight: "bold",
-            }}
-          >
-            Session Token (opcional):
-          </label>
-          <textarea
-            value={credentials.sessionToken}
-            onChange={(e) =>
-              setCredentials({ ...credentials, sessionToken: e.target.value })
-            }
-            placeholder="Token de sessão temporária"
-            rows={3}
-            style={{
-              width: "100%",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              boxSizing: "border-box",
-              resize: "vertical",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "20px" }}>
-          <label
-            style={{
-              display: "block",
-              marginBottom: "5px",
-              fontWeight: "bold",
-            }}
-          >
-            Região:
-          </label>
-          <select
-            value={credentials.region}
-            onChange={(e) =>
-              setCredentials({ ...credentials, region: e.target.value })
-            }
-            style={{
-              width: "100%",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-              boxSizing: "border-box",
-            }}
-          >
-            <option value="us-east-1">us-east-1</option>
-            <option value="us-west-2">us-west-2</option>
-            <option value="eu-west-1">eu-west-1</option>
-            <option value="sa-east-1">sa-east-1</option>
-          </select>
-        </div>
-
-        <button
-          onClick={handleSaveCredentials}
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: loading ? "#6c757d" : "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "16px",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "💾 Salvando..." : "💾 Salvar Credenciais"}
-        </button>
       </div>
-
-      {/* Message */}
-      {message && (
-        <div
-          style={{
-            backgroundColor: message.includes("✅") ? "#d4edda" : "#f8d7da",
-            border: `1px solid ${message.includes("✅") ? "#c3e6cb" : "#f5c6cb"}`,
-            borderRadius: "4px",
-            padding: "10px",
-            marginBottom: "20px",
-            textAlign: "center",
-          }}
-        >
-          {message}
-        </div>
-      )}
-
-      {/* Instructions */}
-      <div
-        style={{
-          backgroundColor: "#e9ecef",
-          border: "1px solid #ced4da",
-          borderRadius: "8px",
-          padding: "15px",
-          fontSize: "14px",
-          color: "#495057",
-        }}
-      >
-        <h4 style={{ marginTop: 0 }}>📋 Como usar:</h4>
-        <ol style={{ margin: 0, paddingLeft: "20px" }}>
-          <li>Use "📋 Modo Rápido" para colar credenciais completas</li>
-          <li>Ou preencha os campos manualmente no "📝 Modo Manual"</li>
-          <li>
-            Os arquivos ~/.aws/credentials e ~/.aws/config são SEMPRE limpos
-            antes de salvar
-          </li>
-          <li>Use "🗑️ Limpar" para apagar todas as credenciais existentes</li>
-          <li>Use "Testar" para verificar se está online</li>
-          <li>Ative "Monitorar" para verificação automática do status</li>
-        </ol>
-      </div>
-    </div>
+    </>
   );
 };

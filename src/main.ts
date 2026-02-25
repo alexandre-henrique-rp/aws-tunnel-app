@@ -47,6 +47,7 @@ const createWindow = () => {
     show: false,
     title: "AWS Tunnel Manager",
     icon: iconPath,
+    autoHideMenuBar: true,
   });
 
   // Usar app.getAppPath() para funcionar em dev e produção

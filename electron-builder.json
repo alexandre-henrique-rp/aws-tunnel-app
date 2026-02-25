@@ -6,9 +6,9 @@
     "output": "release"
   },
   "files": [
-    "dist/**/*",
-    "public/**/*",
-    "node_modules/**/*",
+    "dist/",
+    "public/",
+    "node_modules/",
     "package.json"
   ],
   "extraMetadata": {
@@ -20,14 +20,13 @@
       "deb",
       "AppImage"
     ],
-    "icon": "public/assets/touch-icon-iphone-114-smile.png",
-    "category": "Network",
-    "desktop": {
-      "Icon": "aws-tunnel-manager"
-    }
+    "icon": "public/assets/icon-256x256.png",
+    "category": "Network"
   },
   "deb": {
     "depends": [],
-    "maintainer": "Alexandre Henrique <kingdevtec@gmail.com>"
+    "maintainer": "Alexandre Henrique <kingdevtec@gmail.com>",
+    "icon": "public/assets/icon-256x256.png",
+    "description": "AWS Tunnel Manager - Gerenciamento de conexões SSH tunnel para AWS EC2 com interface gráfica intuitiva"
   }
 }
