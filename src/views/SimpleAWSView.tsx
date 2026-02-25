@@ -240,6 +240,28 @@ export const SimpleAWSView: React.FC = () => {
     }
   }, [showAdvanced]);
 
+  useEffect(() => {
+    if (!credentialsText.trim()) return;
+    
+    const accessKeyMatch = credentialsText.match(/aws_access_key_id[=:](\S+)/i);
+    const secretKeyMatch = credentialsText.match(/aws_secret_access_key[=:](\S+)/i);
+    const sessionTokenMatch = credentialsText.match(/aws_session_token[=:]([\s\S]+?)(?=\n\[|\naws_|$)/i);
+    const profileMatch = credentialsText.match(/\[(.+?)\]/);
+    
+    if (accessKeyMatch || secretKeyMatch || sessionTokenMatch) {
+      setCredentials(prev => ({
+        ...prev,
+        accessKeyId: accessKeyMatch ? accessKeyMatch[1].trim() : prev.accessKeyId,
+        secretAccessKey: secretKeyMatch ? secretKeyMatch[1].trim() : prev.secretAccessKey,
+        sessionToken: sessionTokenMatch ? sessionTokenMatch[1].trim().replace(/\n/g, '') : prev.sessionToken,
+      }));
+      
+      if (profileMatch) {
+        setProfileName(profileMatch[1].trim());
+      }
+    }
+  }, [credentialsText]);
+
   // ── Data Loading ─────────────────────────────────
   const loadInitialData = async () => {
     try {
@@ -413,6 +435,8 @@ export const SimpleAWSView: React.FC = () => {
       if (isOnline) {
         setMessage("success:Conexão bem-sucedida! Você está online.");
         setStatus({ isOnline: true, lastCheck: new Date() });
+        // Sincroniza status com o menu da bandeja
+        window.electron.send("update-tray-status", "Conectado");
       } else {
         setMessage("error:Falha na conexão. Verifique suas credenciais.");
         setStatus({
@@ -420,6 +444,7 @@ export const SimpleAWSView: React.FC = () => {
           lastCheck: new Date(),
           error: "Falha na autenticação",
         });
+        window.electron.send("update-tray-status", "Desconectado");
       }
     } catch (error) {
       console.error("Erro ao testar conexão:", error);
@@ -451,6 +476,7 @@ export const SimpleAWSView: React.FC = () => {
         lastCheck: new Date(),
         error: errorDetails,
       });
+      (window.electron as any).ipcRenderer?.send("update-tray-status", "Desconectado");
     } finally {
       setLoading(false);
     }

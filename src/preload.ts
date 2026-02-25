@@ -81,6 +81,7 @@ export interface ElectronAPI {
   };
   on: (channel: string, callback: (...args: any[]) => void) => void;
   off: (channel: string, callback: (...args: any[]) => void) => void;
+  send: (channel: string, ...args: any[]) => void;
 }
 
 const api: ElectronAPI = {
@@ -175,6 +176,12 @@ const api: ElectronAPI = {
   },
   off: (channel, callback) => {
     ipcRenderer.removeListener(channel, callback);
+  },
+  send: (channel, ...args) => {
+    const validChannels = ["update-tray-status"];
+    if (validChannels.includes(channel)) {
+      ipcRenderer.send(channel, ...args);
+    }
   },
 };
 

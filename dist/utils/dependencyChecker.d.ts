@@ -1,3 +1,4 @@
+import { BrowserWindow } from "electron";
 export interface DependencyStatus {
     name: string;
     installed: boolean;
@@ -28,6 +29,9 @@ export declare class DependencyChecker {
         success: boolean;
         message: string;
     }>;
-    verifyAndPrompt(): Promise<FullDependencyReport>;
+    verifyAndPrompt(mainWindow?: BrowserWindow): Promise<FullDependencyReport>;
+    private showDependencyAlert;
+    private openTerminalForAWSCLI;
+    private openTerminalForAWSSDK;
 }
 export declare const dependencyChecker: DependencyChecker;

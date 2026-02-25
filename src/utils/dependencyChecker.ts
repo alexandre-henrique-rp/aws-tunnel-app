@@ -2,7 +2,7 @@ import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
-import { app } from "electron";
+import { app, ipcMain, BrowserWindow, Notification, dialog } from "electron";
 
 const execAsync = promisify(exec);
 
@@ -63,16 +63,24 @@ export class DependencyChecker {
 
   async checkAWSSDK(): Promise<DependencyStatus> {
     try {
-      const awsSdkPath = require.resolve("aws-sdk");
-      const packageJson = require("aws-sdk/package.json");
+      const AWS = require("aws-sdk");
+      const sts = new AWS.STS();
+      await sts.getCallerIdentity().promise();
       
       return {
         name: "AWS SDK",
         installed: true,
-        version: packageJson.version,
-        path: awsSdkPath,
+        version: AWS.VERSION,
       };
-    } catch {
+    } catch (error: any) {
+      if (error.code === "CredentialsError" || error.code === "NoCredentialsError") {
+        return {
+          name: "AWS SDK",
+          installed: true,
+          version: require("aws-sdk/package.json").version,
+          error: "AWS SDK instalado, mas sem credenciais configuradas",
+        };
+      }
       return {
         name: "AWS SDK",
         installed: false,
@@ -149,18 +157,96 @@ export class DependencyChecker {
     }
   }
 
-  async verifyAndPrompt(): Promise<FullDependencyReport> {
+  async verifyAndPrompt(mainWindow?: BrowserWindow): Promise<FullDependencyReport> {
     const report = await this.getFullReport();
     
-    const missingDeps: string[] = [];
-    if (!report.awsCLI.installed) missingDeps.push("AWS CLI");
-    if (!report.awsSDK.installed) missingDeps.push("AWS SDK");
+    if (!report.awsCLI.installed) {
+      console.warn("[DependencyChecker] AWS CLI não instalado. Abrindo terminal para instalação...");
+      this.showDependencyAlert(mainWindow, "AWS CLI", "AWS CLI não está instalado. Um terminal será aberto para instalação.");
+      this.openTerminalForAWSCLI();
+    }
     
-    if (missingDeps.length > 0) {
-      console.warn(`[DependencyChecker] Atenção: ${missingDeps.join(", ")} não instalados`);
+    if (!report.awsSDK.installed) {
+      console.warn("[DependencyChecker] AWS SDK não instalado. Abrindo terminal para instalação...");
+      this.showDependencyAlert(mainWindow, "AWS SDK", "AWS SDK não está instalado. Um terminal será aberto para instalação.");
+      this.openTerminalForAWSSDK();
     }
     
     return report;
+  }
+
+  private showDependencyAlert(mainWindow: BrowserWindow | undefined, title: string, message: string): void {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: "warning",
+        title: "Dependência Necessária",
+        message: `${title} não encontrado`,
+        detail: message,
+        buttons: ["OK"],
+        defaultId: 0,
+      });
+    }
+    
+    if (Notification.isSupported()) {
+      new Notification({
+        title: `AWS Tunnel - ${title} Necessário`,
+        body: message,
+      }).show();
+    }
+  }
+
+  private openTerminalForAWSCLI(): void {
+    const platform = process.platform;
+    const installCommand = platform === "darwin" 
+      ? "curl 'https://awscli.amazonaws.com/AWSCLIV2.pkg' -o '/tmp/awscliv2.pkg' && sudo installer -pkg /tmp/awscliv2.pkg -target /"
+      : "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o '/tmp/awscliv2.zip' && unzip -q /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install";
+    
+    const terminalEmulators = [
+      { cmd: "gnome-terminal", args: ["--", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "konsole", args: ["-e", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "xfce4-terminal", args: ["-e", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "xterm", args: ["-e", "bash", "-c", `${installCommand}; exec bash`] },
+    ];
+    
+    for (const emulator of terminalEmulators) {
+      try {
+        const result = spawn(emulator.cmd, emulator.args, { detached: true, stdio: "ignore" });
+        result.unref();
+        console.log(`[DependencyChecker] Terminal aberto: ${emulator.cmd}`);
+        return;
+      } catch {
+        continue;
+      }
+    }
+    
+    console.error("[DependencyChecker] Nenhum terminal encontrado. Instale manualmente:");
+    console.error(installCommand);
+  }
+
+  private openTerminalForAWSSDK(): void {
+    const installCommand = "npm install aws-sdk";
+    const appPath = app.getAppPath();
+    
+    const terminalEmulators = [
+      { cmd: "gnome-terminal", args: ["--working-directory", appPath, "--", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "konsole", args: ["--workdir", appPath, "-e", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "xfce4-terminal", args: ["--working-directory", appPath, "-e", "bash", "-c", `${installCommand}; exec bash`] },
+      { cmd: "xterm", args: ["-e", "bash", "-c", `cd "${appPath}" && ${installCommand}; exec bash`] },
+    ];
+    
+    for (const emulator of terminalEmulators) {
+      try {
+        const result = spawn(emulator.cmd, emulator.args, { detached: true, stdio: "ignore" });
+        result.unref();
+        console.log(`[DependencyChecker] Terminal aberto: ${emulator.cmd}`);
+        return;
+      } catch {
+        continue;
+      }
+    }
+    
+    console.error("[DependencyChecker] Nenhum terminal encontrado. Execute manualmente:");
+    console.error(`cd "${appPath}" && ${installCommand}`);
   }
 }
 

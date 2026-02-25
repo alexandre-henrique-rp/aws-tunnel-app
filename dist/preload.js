@@ -75,5 +75,11 @@ const api = {
     off: (channel, callback) => {
         electron_1.ipcRenderer.removeListener(channel, callback);
     },
+    send: (channel, ...args) => {
+        const validChannels = ["update-tray-status"];
+        if (validChannels.includes(channel)) {
+            electron_1.ipcRenderer.send(channel, ...args);
+        }
+    },
 };
 electron_1.contextBridge.exposeInMainWorld("electron", api);

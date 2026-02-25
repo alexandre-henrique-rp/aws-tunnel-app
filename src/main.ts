@@ -172,15 +172,17 @@ app.on("ready", async () => {
   try {
     await profileStorage.initialize();
     isInitialized = true;
-    const deps = await dependencyChecker.verifyAndPrompt();
-    console.log("Dependências verificadas:", deps);
   } catch (error) {
     console.error("Erro na inicialização:", error);
-    // Mesmo com erro, permitir que o aplicativo continue
     isInitialized = true;
   }
 
   createWindow();
+  
+  if (mainWindow) {
+    const deps = await dependencyChecker.verifyAndPrompt(mainWindow);
+    console.log("Dependências verificadas:", deps);
+  }
 });
 
 app.on("before-quit", () => {

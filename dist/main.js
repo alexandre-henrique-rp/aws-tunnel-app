@@ -134,15 +134,16 @@ electron_1.app.on("ready", async () => {
     try {
         await profileStorage_1.profileStorage.initialize();
         isInitialized = true;
-        const deps = await dependencyChecker_1.dependencyChecker.verifyAndPrompt();
-        console.log("Dependências verificadas:", deps);
     }
     catch (error) {
         console.error("Erro na inicialização:", error);
-        // Mesmo com erro, permitir que o aplicativo continue
         isInitialized = true;
     }
     createWindow();
+    if (mainWindow) {
+        const deps = await dependencyChecker_1.dependencyChecker.verifyAndPrompt(mainWindow);
+        console.log("Dependências verificadas:", deps);
+    }
 });
 electron_1.app.on("before-quit", () => {
     isQuitting = true;

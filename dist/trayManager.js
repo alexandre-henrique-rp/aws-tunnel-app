@@ -54,37 +54,28 @@ const updateContextMenu = () => {
             enabled: false,
         },
         { type: "separator" },
+        ...(isConnected
+            ? [
+                {
+                    label: "Desconectar",
+                    click: () => {
+                        mainWindow?.webContents.send("tray:disconnect");
+                    },
+                },
+            ]
+            : [
+                {
+                    label: "Conectar",
+                    click: () => {
+                        mainWindow?.webContents.send("tray:connect");
+                        showWindow();
+                    },
+                },
+            ]),
+        { type: "separator" },
         {
-            label: "Mostrar Janela",
+            label: "Painel",
             click: () => showWindow(),
-        },
-        {
-            label: "Minimizar para Bandeja",
-            click: () => hideWindow(),
-        },
-        { type: "separator" },
-        {
-            label: "Conectar",
-            enabled: !isConnected,
-            click: () => {
-                mainWindow?.webContents.send("tray:connect");
-                showWindow();
-            },
-        },
-        {
-            label: "Desconectar",
-            enabled: isConnected,
-            click: () => {
-                mainWindow?.webContents.send("tray:disconnect");
-            },
-        },
-        { type: "separator" },
-        {
-            label: "Preferências",
-            click: () => {
-                showWindow();
-                mainWindow?.webContents.send("tray:openSettings");
-            },
         },
         { type: "separator" },
         {
